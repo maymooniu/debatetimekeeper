@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BP Debate Timer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --accent: #e8c84a;
+      --accent2: #4ae8c8;
+      --warn: #e87a4a;
+      --danger: #e84a4a;
+      --text: #e0e0f0;
+      --muted: #666680;
+      --gov: #4a8ce8;
+      --opp: #e84a8c;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+      overflow-x: hidden;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container { position: relative; z-index: 1; width: 100%; max-width: 800px; }
+
+    /* HEADER */
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3rem, 10vw, 6rem);
+      letter-spacing: 0.1em;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-top: 0.5rem;
+    }
+
+    /* MAIN TIMER DISPLAY */
+    .timer-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .timer-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--gov), var(--accent), var(--opp));
+      opacity: 0.6;
+    }
+    .timer-card.gov-side { border-color: rgba(74,140,232,0.3); }
+    .timer-card.opp-side { border-color: rgba(232,74,140,0.3); }
+    .timer-card.warning { border-color: rgba(232,122,74,0.5); }
+    .timer-card.danger  { border-color: rgba(232,74,74,0.5); }
+
+    /* Speaker info */
+    .speaker-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .speech-number {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+    }
+    .speaker-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      letter-spacing: 0.05em;
+      line-height: 1.1;
+    }
+    .speaker-name.gov { color: var(--gov); }
+    .speaker-name.opp { color: var(--opp); }
+    .team-tag {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.6rem;
+      border-radius: 2px;
+      font-weight: 500;
+    }
+    .team-tag.gov { background: rgba(74,140,232,0.15); color: var(--gov); border: 1px solid rgba(74,140,232,0.3); }
+    .team-tag.opp { background: rgba(232,74,140,0.15); color: var(--opp); border: 1px solid rgba(232,74,140,0.3); }
+    .team-tag.cg  { background: rgba(74,140,232,0.08); color: #7ab0f0; border: 1px solid rgba(74,140,232,0.2); }
+    .team-tag.co  { background: rgba(232,74,140,0.08); color: #f07ab0; border: 1px solid rgba(232,74,140,0.2); }
+
+    /* Big clock */
+    .clock-display {
+      text-align: center;
+      margin: 1rem 0;
+    }
+    .clock {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(5rem, 20vw, 9rem);
+      letter-spacing: 0.05em;
+      line-height: 1;
+      transition: color 0.3s;
+      color: var(--text);
+    }
+    .clock.warning { color: var(--warn); }
+    .clock.danger  { color: var(--danger); animation: pulse 0.8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    /* POI indicator */
+    .poi-band {
+      text-align: center;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.4rem;
+      border-radius: 2px;
+      margin: 0.5rem 0;
+      transition: all 0.3s;
+    }
+    .poi-band.active {
+      background: rgba(232,200,74,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(232,200,74,0.3);
+    }
+    .poi-band.inactive {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+    }
+
+    /* Progress bar */
+    .progress-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 1rem 0 1.5rem;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent2);
+      transition: width 0.5s linear, background 0.3s;
+    }
+    .progress-fill.warning { background: var(--warn); }
+    .progress-fill.danger  { background: var(--danger); }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    button {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      border-radius: 2px;
+      padding: 0.7rem 1.5rem;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0a0a0f;
+      font-weight: 500;
+    }
+    .btn-primary:hover { background: #f0d060; transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--muted); background: rgba(255,255,255,0.03); }
+    .btn-danger {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-danger:hover { color: var(--danger); border-color: var(--danger); }
+    .btn-next {
+      background: var(--accent2);
+      color: #0a0a0f;
+      font-weight: 500;
+    }
+    .btn-next:hover { background: #6af0d8; transform: translateY(-1px); }
+
+    /* Speech list */
+    .speech-list-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .speech-list-title {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .speech-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .speech-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 2px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 0.75rem;
+    }
+    .speech-item:hover { background: rgba(255,255,255,0.03); border-color: var(--border); }
+    .speech-item.current {
+      background: rgba(232,200,74,0.07);
+      border-color: rgba(232,200,74,0.25);
+    }
+    .speech-item.done { opacity: 0.4; }
+    .speech-item.done .speech-dot { background: var(--muted); }
+    .speech-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--border);
+    }
+    .speech-dot.gov { background: var(--gov); }
+    .speech-dot.opp { background: var(--opp); }
+    .speech-dot.cg  { background: #7ab0f0; }
+    .speech-dot.co  { background: #f07ab0; }
+    .speech-dot.reply-gov { background: var(--gov); box-shadow: 0 0 0 2px rgba(74,140,232,0.3); }
+    .speech-dot.reply-opp { background: var(--opp); box-shadow: 0 0 0 2px rgba(232,74,140,0.3); }
+    .speech-item-name { flex: 1; color: var(--text); }
+    .speech-item-team { color: var(--muted); font-size: 0.65rem; }
+    .speech-item-dur  { color: var(--muted); font-size: 0.65rem; }
+    .speech-item.current .speech-item-name { color: var(--accent); }
+
+    /* Notification bar */
+    .notification {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 0.6rem 1.5rem;
+      border-radius: 2px;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      z-index: 999;
+      transition: transform 0.3s ease;
+      white-space: nowrap;
+    }
+    .notification.show { transform: translateX(-50%) translateY(0); }
+
+    /* Done screen */
+    .done-banner {
+      text-align: center;
+      padding: 2rem;
+    }
+    .done-banner h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3rem;
+      letter-spacing: 0.1em;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .done-banner p { color: var(--muted); font-size: 0.75rem; margin-top: 0.5rem; letter-spacing: 0.1em; }
+
+    @media (max-width: 480px) {
+      .controls { gap: 0.5rem; }
+      button { padding: 0.6rem 1rem; font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>BP Timer</h1>
+    <p>British Parliamentary Debate</p>
+  </header>
+
+  <div class="timer-card" id="timerCard">
+    <div class="speaker-meta">
+      <div>
+        <div class="speech-number" id="speechNumber">Speech 1 of 8</div>
+        <div class="speaker-name" id="speakerName">Prime Minister</div>
+      </div>
+      <span class="team-tag" id="teamTag">Opening Gov</span>
+    </div>
+
+    <div class="clock-display">
+      <div class="clock" id="clock">7:00</div>
+    </div>
+
+    <div class="poi-band inactive" id="poiBand">POI Zone: 1:00 – 6:00</div>
+
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:100%"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-primary" id="btnStartStop" onclick="toggleTimer()">Start</button>
+      <button class="btn-secondary" onclick="resetCurrent()">Reset</button>
+      <button class="btn-next" onclick="nextSpeech()">Next →</button>
+      <button class="btn-danger" onclick="resetAll()">Reset All</button>
+    </div>
+  </div>
+
+  <div class="speech-list-card">
+    <div class="speech-list-title">Round Order</div>
+    <ul class="speech-list" id="speechList"></ul>
+  </div>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script>
+const SPEECHES = [
+  { name: "Prime Minister",          team: "Opening Gov",  side: "gov",        duration: 420 },
+  { name: "Leader of Opposition",    team: "Opening Opp",  side: "opp",        duration: 420 },
+  { name: "Deputy Prime Minister",   team: "Opening Gov",  side: "gov",        duration: 420 },
+  { name: "Deputy Leader of Opp.",   team: "Opening Opp",  side: "opp",        duration: 420 },
+  { name: "Member for Government",   team: "Closing Gov",  side: "cg",         duration: 420 },
+  { name: "Member for Opposition",   team: "Closing Opp",  side: "co",         duration: 420 },
+  { name: "Government Whip",         team: "Closing Gov",  side: "cg",         duration: 420 },
+  { name: "Opposition Whip",         team: "Closing Opp",  side: "co",         duration: 420 },
+  { name: "Reply — Opposition",      team: "Closing Opp",  side: "reply-opp",  duration: 120 },
+  { name: "Reply — Government",      team: "Closing Gov",  side: "reply-gov",  duration: 120 },
+];
+
+const POI_START = 60, POI_END = 360; // seconds from start of 7-min speech
+
+let currentIdx = 0;
+let remaining = SPEECHES[0].duration;
+let running = false;
+let interval = null;
+let notifTimeout = null;
+let bells = { one: false, six: false, seven: false, pme: false };
+
+// Audio beeps
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function beep(freq, dur, vol = 0.3) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + dur);
+  } catch(e) {}
+}
+
+function bell(count = 1) {
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => beep(880, 0.6, 0.4), i * 700);
+  }
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+function showNotif(msg) {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(notifTimeout);
+  notifTimeout = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function updateUI() {
+  const sp = SPEECHES[currentIdx];
+  const total = sp.duration;
+  const elapsed = total - remaining;
+  const frac = remaining / total;
+  const isReply = sp.duration === 120;
+
+  // Card side class
+  const card = document.getElementById('timerCard');
+  card.className = 'timer-card';
+  if (sp.side.includes('gov') || sp.side === 'cg') card.classList.add('gov-side');
+  else card.classList.add('opp-side');
+
+  // Speech info
+  document.getElementById('speechNumber').textContent =
+    `Speech ${currentIdx + 1} of ${SPEECHES.length}`;
+  const nameEl = document.getElementById('speakerName');
+  nameEl.textContent = sp.name;
+  nameEl.className = 'speaker-name ' + (sp.side.includes('opp') || sp.side === 'co' ? 'opp' : 'gov');
+
+  const tagEl = document.getElementById('teamTag');
+  tagEl.textContent = sp.team;
+  tagEl.className = 'team-tag ' + sp.side.replace('reply-','');
+
+  // Clock
+  const clockEl = document.getElementById('clock');
+  clockEl.textContent = formatTime(remaining);
+  clockEl.className = 'clock';
+  if (remaining <= 0) {
+    clockEl.classList.add('danger');
+    card.classList.add('danger');
+  } else if (remaining <= 60) {
+    clockEl.classList.add('danger');
+    card.classList.add('danger');
+  } else if (remaining <= 120) {
+    clockEl.classList.add('warning');
+    card.classList.add('warning');
+  }
+
+  // Progress bar
+  const fill = document.getElementById('progressFill');
+  fill.style.width = (frac * 100) + '%';
+  fill.className = 'progress-fill';
+  if (remaining <= 0 || remaining <= 60) fill.classList.add('danger');
+  else if (remaining <= 120) fill.classList.add('warning');
+
+  // POI band
+  const poiBand = document.getElementById('poiBand');
+  if (!isReply) {
+    const inPoi = elapsed >= POI_START && elapsed < POI_END && remaining > 0;
+    poiBand.className = 'poi-band ' + (inPoi ? 'active' : 'inactive');
+    poiBand.textContent = inPoi ? '⬡ POI Zone Open' : 'POI Zone: 1:00 – 6:00';
+  } else {
+    poiBand.className = 'poi-band inactive';
+    poiBand.textContent = 'Reply Speech — No POIs';
+  }
+
+  // Speech list
+  renderList();
+
+  // Start/stop button
+  document.getElementById('btnStartStop').textContent = running ? 'Pause' : 'Start';
+}
+
+function renderList() {
+  const ul = document.getElementById('speechList');
+  ul.innerHTML = '';
+  SPEECHES.forEach((sp, i) => {
+    const li = document.createElement('li');
+    li.className = 'speech-item';
+    if (i === currentIdx) li.classList.add('current');
+    else if (i < currentIdx) li.classList.add('done');
+
+    li.innerHTML = `
+      <span class="speech-dot ${sp.side}"></span>
+      <span class="speech-item-name">${sp.name}</span>
+      <span class="speech-item-team">${sp.team}</span>
+      <span class="speech-item-dur">${sp.duration === 120 ? '2 min' : '7 min'}</span>
+    `;
+    li.onclick = () => jumpTo(i);
+    ul.appendChild(li);
+  });
+}
+
+function jumpTo(idx) {
+  stopTimer();
+  currentIdx = idx;
+  remaining = SPEECHES[idx].duration;
+  bells = { one: false, six: false, seven: false, pme: false };
+  updateUI();
+}
+
+function toggleTimer() {
+  if (running) stopTimer();
+  else startTimer();
+}
+
+function startTimer() {
+  if (remaining <= 0) return;
+  running = true;
+  interval = setInterval(tick, 1000);
+  updateUI();
+}
+
+function stopTimer() {
+  running = false;
+  clearInterval(interval);
+  updateUI();
+}
+
+function tick() {
+  const sp = SPEECHES[currentIdx];
+  const elapsed = sp.duration - remaining;
+
+  // Bell at 1 minute (elapsed = 60)
+  if (!bells.one && elapsed >= 59) {
+    bells.one = true;
+    bell(1);
+    showNotif('1 minute — POI zone open');
+  }
+  // Bell at 6 minutes (elapsed = 360) — only for 7-min speeches
+  if (!bells.six && sp.duration === 420 && elapsed >= 359) {
+    bells.six = true;
+    bell(1);
+    showNotif('6 minutes — POI zone closed');
+  }
+  // Bell at time (elapsed = duration)
+  if (!bells.seven && elapsed >= sp.duration - 1) {
+    bells.seven = true;
+    bell(2);
+    showNotif('Time!');
+  }
+  // Double bell at +30s over
+  if (!bells.pme && elapsed >= sp.duration + 29) {
+    bells.pme = true;
+    bell(3);
+    showNotif('Overtime — please conclude');
+  }
+
+  remaining--;
+  updateUI();
+}
+
+function resetCurrent() {
+  stopTimer();
+  remaining = SPEECHES[currentIdx].duration;
+  bells = { one: false, six: false, seven: false, pme: false };
+  updateUI();
+}
+
+function nextSpeech() {
+  stopTimer();
+  if (currentIdx < SPEECHES.length - 1) {
+    currentIdx++;
+    remaining = SPEECHES[currentIdx].duration;
+    bells = { one: false, six: false, seven: false, pme: false };
+    updateUI();
+    showNotif(`${SPEECHES[currentIdx].name}`);
+  } else {
+    showNotif('Round complete!');
+    renderDone();
+  }
+}
+
+function renderDone() {
+  const card = document.getElementById('timerCard');
+  card.innerHTML = `
+    <div class="done-banner">
+      <h2>Round Complete</h2>
+      <p>All speeches delivered</p>
+      <br/>
+      <button class="btn-primary" onclick="resetAll()" style="margin-top:1rem">New Round</button>
+    </div>
+  `;
+}
+
+function resetAll() {
+  stopTimer();
+  currentIdx = 0;
+  remaining = SPEECHES[0].duration;
+  bells = { one: false, six: false, seven: false, pme: false };
+
+  // Re-render full card
+  document.getElementById('timerCard').innerHTML = `
+    <div class="speaker-meta">
+      <div>
+        <div class="speech-number" id="speechNumber">Speech 1 of 8</div>
+        <div class="speaker-name" id="speakerName">Prime Minister</div>
+      </div>
+      <span class="team-tag" id="teamTag">Opening Gov</span>
+    </div>
+    <div class="clock-display">
+      <div class="clock" id="clock">7:00</div>
+    </div>
+    <div class="poi-band inactive" id="poiBand">POI Zone: 1:00 – 6:00</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:100%"></div>
+    </div>
+    <div class="controls">
+      <button class="btn-primary" id="btnStartStop" onclick="toggleTimer()">Start</button>
+      <button class="btn-secondary" onclick="resetCurrent()">Reset</button>
+      <button class="btn-next" onclick="nextSpeech()">Next →</button>
+      <button class="btn-danger" onclick="resetAll()">Reset All</button>
+    </div>
+  `;
+  updateUI();
+}
+
+// Init
+updateUI();
+</script>
+</body>
+</html>
