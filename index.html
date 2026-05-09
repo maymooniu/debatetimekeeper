@@ -380,6 +380,24 @@
   .notification.show { transform: translateX(-50%) translateY(0); }
   .notification.poi-notif { border-color: var(--poi); color: var(--poi); }
 
+  /* done banner styles */
+  #doneBanner {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  #doneBanner h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+  }
+  #doneBanner p {
+    color: var(--muted);
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+  }
+
   /* 📱 MOBILE SPECIFIC OPTIMIZATIONS - SIDE BY SIDE CONTROLS */
   @media (max-width: 768px) {
     body { padding: 1rem 0.5rem 2rem; }
@@ -410,15 +428,13 @@
       width: 100%;
     }
     
-    /* Make buttons share the width side-by-side */
     .controls button {
       flex: 1 1 calc(50% - 0.5rem);
-      padding: 1.2rem 0.25rem; /* Reduced horizontal padding to prevent text overflow */
+      padding: 1.2rem 0.25rem; 
       font-size: 1rem;
       margin: 0;
     }
     
-    /* Ensure the dangerous Reset All button stays on its own row at the bottom */
     .btn-danger-soft { 
       flex: 1 1 100%; 
     }
@@ -439,36 +455,48 @@
   </header>
 
   <div class="timer-card" id="timerCard">
-    <div class="speaker-meta">
-      <div>
-        <div class="speech-number" id="speechNumber">Phase 1 of 9</div>
-        <div class="speaker-name prep" id="speakerName">Case Building</div>
+    
+    <!-- Timer Content Wrapper -->
+    <div id="timerContent">
+      <div class="speaker-meta">
+        <div>
+          <div class="speech-number" id="speechNumber">Phase 1 of 9</div>
+          <div class="speaker-name prep" id="speakerName">Case Building</div>
+        </div>
+        <span class="team-tag prep" id="teamTag">All Teams</span>
       </div>
-      <span class="team-tag prep" id="teamTag">All Teams</span>
+
+      <div class="clock-display">
+        <div class="clock" id="clock">0:00</div>
+      </div>
+
+      <div class="poi-clock-wrap" id="poiClockWrap">
+        <div class="poi-clock-label">POI — Time Remaining</div>
+        <div class="poi-clock" id="poiClock">0:15</div>
+      </div>
+
+      <div class="poi-band inactive" id="poiBand">Prep Time — No POIs</div>
+
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+
+      <div class="controls">
+        <button class="btn-primary" id="btnStartStop" onclick="toggleTimer()">Start</button>
+        <button class="btn-poi" id="btnPoi" onclick="startPOI()" disabled>POI</button>
+        <button class="btn-secondary" onclick="resetCurrent()">Reset</button>
+        <button class="btn-next" onclick="nextSpeech()">Next →</button>
+        <button class="btn-danger-soft" onclick="resetAll()">Reset All</button>
+      </div>
+    </div>
+    
+    <!-- Hidden Done Banner -->
+    <div id="doneBanner" style="display:none;">
+      <h2>Round Complete</h2>
+      <p>All speeches delivered</p>
+      <button class="btn-primary" onclick="resetAll()" style="width: 100%; padding: 1.5rem; font-size: 1.2rem;">Start New Round</button>
     </div>
 
-    <div class="clock-display">
-      <div class="clock" id="clock">0:00</div>
-    </div>
-
-    <div class="poi-clock-wrap" id="poiClockWrap">
-      <div class="poi-clock-label">POI — Time Remaining</div>
-      <div class="poi-clock" id="poiClock">0:15</div>
-    </div>
-
-    <div class="poi-band inactive" id="poiBand">Prep Time — No POIs</div>
-
-    <div class="progress-track">
-      <div class="progress-fill" id="progressFill" style="width:0%"></div>
-    </div>
-
-    <div class="controls">
-      <button class="btn-primary" id="btnStartStop" onclick="toggleTimer()">Start</button>
-      <button class="btn-poi" id="btnPoi" onclick="startPOI()" disabled>POI</button>
-      <button class="btn-secondary" onclick="resetCurrent()">Reset</button>
-      <button class="btn-next" onclick="nextSpeech()">Next →</button>
-      <button class="btn-danger-soft" onclick="resetAll()">Reset All</button>
-    </div>
   </div>
 
   <div class="speech-list-card">
@@ -519,13 +547,11 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-// Restaurant-style loud bell: layered harmonics, sharp attack, long ring
 function ringBell(isPoi = false) {
   try {
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
 
-    // POI bell = softer short ding
     if (isPoi) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -546,7 +572,6 @@ function ringBell(isPoi = false) {
       return;
     }
 
-    // RESTAURANT / HOTEL COUNTER BELL SOUND
     const master = ctx.createGain();
     master.gain.value = 0.9;
     master.connect(ctx.destination);
@@ -732,7 +757,7 @@ function resetCurrent() {
 }
 
 function nextSpeech() {
-  timeTaken[currentIdx] = elapsed;   // record time taken
+  timeTaken[currentIdx] = elapsed;
   stopTimer();
   if (currentIdx < SPEECHES.length - 1) {
     currentIdx++;
@@ -753,17 +778,34 @@ function jumpTo(idx) {
   elapsed = 0;
   bells = { one: false, six: false, time: false };
   overtimeBellsFired = new Set();
+  
+  // Ensure the timer interface is visible if they jumped from the done screen
+  document.getElementById('timerContent').style.display = 'block';
+  document.getElementById('doneBanner').style.display = 'none';
+  
   updateUI();
 }
 
 function resetAll() {
   stopTimer();
-  currentIdx = 0; elapsed = 0;
+  currentIdx = 0; 
+  elapsed = 0;
   bells = { one: false, six: false, time: false };
   overtimeBellsFired = new Set();
   timeTaken = {};
-  rebuildCard();
+  
+  // Restore the timer interface view
+  document.getElementById('timerContent').style.display = 'block';
+  document.getElementById('doneBanner').style.display = 'none';
+  
   updateUI();
+}
+
+function renderDone() {
+  document.getElementById('timerContent').style.display = 'none';
+  document.getElementById('doneBanner').style.display = 'block';
+  document.getElementById('timerCard').className = 'timer-card'; // Resets border colors
+  renderList(); // Updates list highlights
 }
 
 /* ── UI ── */
@@ -864,8 +906,14 @@ function renderList() {
   SPEECHES.forEach((sp, i) => {
     const li = document.createElement('li');
     li.className = 'speech-item';
-    if (i === currentIdx) li.classList.add('current');
-    else if (i < currentIdx) li.classList.add('done');
+    
+    // Only highlight if the timer interface is actually visible
+    if (i === currentIdx && document.getElementById('timerContent').style.display !== 'none') {
+      li.classList.add('current');
+    } else if (i < currentIdx || document.getElementById('timerContent').style.display === 'none') {
+      // If we are on the Done screen, everything is marked done
+      li.classList.add('done');
+    }
 
     const taken = timeTaken[i] !== undefined ? formatTime(timeTaken[i]) : '';
 
@@ -879,47 +927,6 @@ function renderList() {
     li.onclick = () => jumpTo(i);
     ul.appendChild(li);
   });
-}
-
-function renderDone() {
-  const card = document.getElementById('timerCard');
-  card.innerHTML = `
-    <div class="done-banner">
-      <h2>Round Complete</h2>
-      <p>All speeches delivered</p>
-      <button class="btn-primary" onclick="resetAll()" style="margin-top:1.5rem; width: 100%;">New Round</button>
-    </div>
-  `;
-}
-
-function rebuildCard() {
-  document.getElementById('timerCard').innerHTML = `
-    <div class="speaker-meta">
-      <div>
-        <div class="speech-number" id="speechNumber">Phase 1 of 9</div>
-        <div class="speaker-name prep" id="speakerName">Case Building</div>
-      </div>
-      <span class="team-tag prep" id="teamTag">All Teams</span>
-    </div>
-    <div class="clock-display">
-      <div class="clock" id="clock">0:00</div>
-    </div>
-    <div class="poi-clock-wrap" id="poiClockWrap">
-      <div class="poi-clock-label">POI — Time Remaining</div>
-      <div class="poi-clock" id="poiClock">0:15</div>
-    </div>
-    <div class="poi-band inactive" id="poiBand">Prep Time — No POIs</div>
-    <div class="progress-track">
-      <div class="progress-fill" id="progressFill" style="width:0%"></div>
-    </div>
-    <div class="controls">
-      <button class="btn-primary" id="btnStartStop" onclick="toggleTimer()">Start</button>
-      <button class="btn-poi" id="btnPoi" onclick="startPOI()" disabled>POI</button>
-      <button class="btn-secondary" onclick="resetCurrent()">Reset</button>
-      <button class="btn-next" onclick="nextSpeech()">Next →</button>
-      <button class="btn-danger-soft" onclick="resetAll()">Reset All</button>
-    </div>
-  `;
 }
 
 // Init
