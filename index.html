@@ -348,13 +348,13 @@
     </div>
 
     <div class="clock-display">
-      <div class="clock" id="clock">7:00</div>
+      <div class="clock" id="clock">0:00</div>
     </div>
 
     <div class="poi-band inactive" id="poiBand">POI Zone: 1:00 – 6:00</div>
 
     <div class="progress-track">
-      <div class="progress-fill" id="progressFill" style="width:100%"></div>
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
     </div>
 
     <div class="controls">
@@ -387,16 +387,19 @@ const SPEECHES = [
   { name: "Reply — Government",      team: "Closing Gov",  side: "reply-gov",  duration: 120 },
 ];
 
-const POI_START = 60, POI_END = 360; // seconds from start of 7-min speech
+const POI_START = 60, POI_END = 360; // seconds elapsed
 
 let currentIdx = 0;
-let remaining = SPEECHES[0].duration;
+let elapsed = 0;       // counts UP
 let running = false;
 let interval = null;
 let notifTimeout = null;
-let bells = { one: false, six: false, seven: false, pme: false };
+// bells: track fixed bell moments already fired
+let bells = { one: false, six: false, time: false };
+// overtime: track which 15s intervals have fired (index = (elapsed - overtime_start) / 15)
+let overtimeBellsFired = new Set();
 
-// Audio beeps
+// Audio
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
 
@@ -444,15 +447,19 @@ function showNotif(msg) {
 function updateUI() {
   const sp = SPEECHES[currentIdx];
   const total = sp.duration;
-  const elapsed = total - remaining;
-  const frac = remaining / total;
-  const isReply = sp.duration === 120;
+  const isReply = total === 120;
+  // overtime starts at total + 15 seconds (7:15 for 7-min, 2:15 for reply)
+  const overtimeStart = total + 15;
+  const isOvertime = elapsed >= total;
+  const isLate = elapsed >= total - 60 && elapsed < total; // last minute
 
   // Card side class
   const card = document.getElementById('timerCard');
   card.className = 'timer-card';
   if (sp.side.includes('gov') || sp.side === 'cg') card.classList.add('gov-side');
   else card.classList.add('opp-side');
+  if (isOvertime) card.classList.add('danger');
+  else if (isLate) card.classList.add('warning');
 
   // Speech info
   document.getElementById('speechNumber').textContent =
@@ -465,32 +472,25 @@ function updateUI() {
   tagEl.textContent = sp.team;
   tagEl.className = 'team-tag ' + sp.side.replace('reply-','');
 
-  // Clock
+  // Clock — show elapsed, highlight overtime in red
   const clockEl = document.getElementById('clock');
-  clockEl.textContent = formatTime(remaining);
+  clockEl.textContent = formatTime(elapsed);
   clockEl.className = 'clock';
-  if (remaining <= 0) {
-    clockEl.classList.add('danger');
-    card.classList.add('danger');
-  } else if (remaining <= 60) {
-    clockEl.classList.add('danger');
-    card.classList.add('danger');
-  } else if (remaining <= 120) {
-    clockEl.classList.add('warning');
-    card.classList.add('warning');
-  }
+  if (isOvertime) clockEl.classList.add('danger');
+  else if (isLate) clockEl.classList.add('warning');
 
-  // Progress bar
+  // Progress bar — fills up to total duration, stays full in overtime
   const fill = document.getElementById('progressFill');
+  const frac = Math.min(elapsed / total, 1);
   fill.style.width = (frac * 100) + '%';
   fill.className = 'progress-fill';
-  if (remaining <= 0 || remaining <= 60) fill.classList.add('danger');
-  else if (remaining <= 120) fill.classList.add('warning');
+  if (isOvertime) fill.classList.add('danger');
+  else if (isLate) fill.classList.add('warning');
 
   // POI band
   const poiBand = document.getElementById('poiBand');
   if (!isReply) {
-    const inPoi = elapsed >= POI_START && elapsed < POI_END && remaining > 0;
+    const inPoi = elapsed >= POI_START && elapsed < POI_END;
     poiBand.className = 'poi-band ' + (inPoi ? 'active' : 'inactive');
     poiBand.textContent = inPoi ? '⬡ POI Zone Open' : 'POI Zone: 1:00 – 6:00';
   } else {
@@ -528,8 +528,9 @@ function renderList() {
 function jumpTo(idx) {
   stopTimer();
   currentIdx = idx;
-  remaining = SPEECHES[idx].duration;
-  bells = { one: false, six: false, seven: false, pme: false };
+  elapsed = 0;
+  bells = { one: false, six: false, time: false };
+  overtimeBellsFired = new Set();
   updateUI();
 }
 
@@ -539,7 +540,6 @@ function toggleTimer() {
 }
 
 function startTimer() {
-  if (remaining <= 0) return;
   running = true;
   interval = setInterval(tick, 1000);
   updateUI();
@@ -552,42 +552,51 @@ function stopTimer() {
 }
 
 function tick() {
+  elapsed++;
   const sp = SPEECHES[currentIdx];
-  const elapsed = sp.duration - remaining;
+  const total = sp.duration;
+  const isReply = total === 120;
+  const overtimeStart = total + 15; // 7:15 for main, 2:15 for reply
 
-  // Bell at 1 minute (elapsed = 60)
-  if (!bells.one && elapsed >= 59) {
+  // Bell at 1:00
+  if (!bells.one && elapsed === 60) {
     bells.one = true;
     bell(1);
     showNotif('1 minute — POI zone open');
   }
-  // Bell at 6 minutes (elapsed = 360) — only for 7-min speeches
-  if (!bells.six && sp.duration === 420 && elapsed >= 359) {
+  // Bell at 6:00 (only for 7-min speeches)
+  if (!bells.six && !isReply && elapsed === 360) {
     bells.six = true;
     bell(1);
     showNotif('6 minutes — POI zone closed');
   }
-  // Bell at time (elapsed = duration)
-  if (!bells.seven && elapsed >= sp.duration - 1) {
-    bells.seven = true;
+  // Double bell at speech time (7:00 or 2:00)
+  if (!bells.time && elapsed === total) {
+    bells.time = true;
     bell(2);
     showNotif('Time!');
   }
-  // Double bell at +30s over
-  if (!bells.pme && elapsed >= sp.duration + 29) {
-    bells.pme = true;
-    bell(3);
-    showNotif('Overtime — please conclude');
+  // From 7:15 onward: bell every 15 seconds
+  if (elapsed >= overtimeStart) {
+    const overtimeElapsed = elapsed - overtimeStart;
+    if (overtimeElapsed % 15 === 0) {
+      const idx = overtimeElapsed / 15;
+      if (!overtimeBellsFired.has(idx)) {
+        overtimeBellsFired.add(idx);
+        bell(3);
+        showNotif('Overtime +' + formatTime(elapsed - total));
+      }
+    }
   }
 
-  remaining--;
   updateUI();
 }
 
 function resetCurrent() {
   stopTimer();
-  remaining = SPEECHES[currentIdx].duration;
-  bells = { one: false, six: false, seven: false, pme: false };
+  elapsed = 0;
+  bells = { one: false, six: false, time: false };
+  overtimeBellsFired = new Set();
   updateUI();
 }
 
@@ -595,8 +604,9 @@ function nextSpeech() {
   stopTimer();
   if (currentIdx < SPEECHES.length - 1) {
     currentIdx++;
-    remaining = SPEECHES[currentIdx].duration;
-    bells = { one: false, six: false, seven: false, pme: false };
+    elapsed = 0;
+    bells = { one: false, six: false, time: false };
+    overtimeBellsFired = new Set();
     updateUI();
     showNotif(`${SPEECHES[currentIdx].name}`);
   } else {
@@ -620,24 +630,24 @@ function renderDone() {
 function resetAll() {
   stopTimer();
   currentIdx = 0;
-  remaining = SPEECHES[0].duration;
-  bells = { one: false, six: false, seven: false, pme: false };
+  elapsed = 0;
+  bells = { one: false, six: false, time: false };
+  overtimeBellsFired = new Set();
 
-  // Re-render full card
   document.getElementById('timerCard').innerHTML = `
     <div class="speaker-meta">
       <div>
-        <div class="speech-number" id="speechNumber">Speech 1 of 8</div>
+        <div class="speech-number" id="speechNumber">Speech 1 of 10</div>
         <div class="speaker-name" id="speakerName">Prime Minister</div>
       </div>
       <span class="team-tag" id="teamTag">Opening Gov</span>
     </div>
     <div class="clock-display">
-      <div class="clock" id="clock">7:00</div>
+      <div class="clock" id="clock">0:00</div>
     </div>
     <div class="poi-band inactive" id="poiBand">POI Zone: 1:00 – 6:00</div>
     <div class="progress-track">
-      <div class="progress-fill" id="progressFill" style="width:100%"></div>
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
     </div>
     <div class="controls">
       <button class="btn-primary" id="btnStartStop" onclick="toggleTimer()">Start</button>
@@ -649,7 +659,7 @@ function resetAll() {
   updateUI();
 }
 
-// Init
+// Init — show 0:00 at start
 updateUI();
 </script>
 </body>
