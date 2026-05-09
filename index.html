@@ -52,11 +52,11 @@
 
     .container { position: relative; z-index: 1; width: 100%; max-width: 800px; }
 
-    header { text-align: center; margin-bottom: 3rem; }
+    header { text-align: center; margin-bottom: 1.5rem; }
     header h1 {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(3rem, 10vw, 6rem);
-      letter-spacing: 0.1em;
+      font-size: clamp(1.4rem, 4vw, 2.2rem);
+      letter-spacing: 0.18em;
       line-height: 1;
       background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
       -webkit-background-clip: text;
@@ -64,11 +64,11 @@
       background-clip: text;
     }
     header p {
-      font-size: 0.75rem;
+      font-size: 0.6rem;
       color: var(--muted);
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      margin-top: 0.5rem;
+      margin-top: 0.25rem;
     }
 
     /* TIMER CARD */
@@ -93,7 +93,8 @@
     }
     .timer-card.gov-side  { border-color: rgba(74,140,232,0.3); }
     .timer-card.opp-side  { border-color: rgba(232,74,140,0.3); }
-    .timer-card.warning   { border-color: rgba(232,122,74,0.5); }
+    .timer-card.green   { border-color: rgba(62,232,122,0.35); }
+    .timer-card.warning { border-color: rgba(232,122,74,0.5); }
     .timer-card.danger    { border-color: rgba(232,74,74,0.5); }
     .timer-card.poi-live  {
       border-color: rgba(74,157,232,0.7) !important;
@@ -145,12 +146,13 @@
     .clock-display { text-align: center; margin: 0.5rem 0; }
     .clock {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(5rem, 20vw, 9rem);
+      font-size: clamp(7rem, 28vw, 13rem);
       letter-spacing: 0.05em;
       line-height: 1;
       transition: color 0.3s;
       color: var(--text);
     }
+    .clock.green   { color: #3ee87a; }
     .clock.warning { color: var(--warn); }
     .clock.danger  { color: var(--danger); animation: pulse 0.8s ease-in-out infinite; }
     .clock.poi     { color: var(--poi) !important; animation: none; }
@@ -223,6 +225,7 @@
       background: var(--accent2);
       transition: width 0.5s linear, background 0.3s;
     }
+    .progress-fill.green   { background: #3ee87a; }
     .progress-fill.warning { background: var(--warn); }
     .progress-fill.danger  { background: var(--danger); }
     .progress-fill.poi     { background: var(--poi); }
@@ -447,21 +450,53 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-function beep(freq, dur, vol = 0.35) {
+// Restaurant-style loud bell: layered harmonics, sharp attack, long ring
+function ringBell(isPoi = false) {
   try {
     const ctx = getAudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.value = freq; osc.type = 'sine';
-    gain.gain.setValueAtTime(vol, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
+    const now = ctx.currentTime;
+    if (isPoi) {
+      // Soft POI tone
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.frequency.value = 660; osc.type = 'sine';
+      g.gain.setValueAtTime(0.28, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+      osc.start(now); osc.stop(now + 0.7);
+      return;
+    }
+    // Main bell: fundamental + harmonics for metallic "ding" resonance
+    const partials = [
+      { freq: 1318, vol: 1.0, type: 'sine' },
+      { freq: 2637, vol: 0.55, type: 'sine' },
+      { freq: 1760, vol: 0.4, type: 'triangle' },
+      { freq: 3520, vol: 0.25, type: 'sine' },
+      { freq: 880,  vol: 0.35, type: 'sine' },
+    ];
+    // Compressor to keep it loud but not clipping
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -6;
+    comp.ratio.value = 4;
+    comp.connect(ctx.destination);
+
+    partials.forEach(({ freq, vol, type }) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      // Very fast attack, slow exponential decay — bell character
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(vol, now + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+      osc.connect(g); g.connect(comp);
+      osc.start(now); osc.stop(now + 2.5);
+    });
   } catch(e) {}
 }
 
-function bell(count = 1, freq = 880) {
-  for (let i = 0; i < count; i++) setTimeout(() => beep(freq, 0.55, 0.4), i * 700);
+function bell(count = 1, isPoi = false) {
+  for (let i = 0; i < count; i++) setTimeout(() => ringBell(isPoi), i * 900);
 }
 
 function formatTime(s) {
@@ -502,7 +537,7 @@ function tickPOI() {
   document.getElementById('poiClock').textContent = formatTime(poiRemaining);
   if (poiRemaining <= 0) {
     endPOI();
-    bell(1, 660);
+    bell(1, true);
     showNotif('POI ended', true);
   }
 }
@@ -616,9 +651,11 @@ function updateUI() {
   const sp = SPEECHES[currentIdx];
   if (!sp) return;
   const total = sp.duration;
-  const isOvertime = elapsed >= total;
-  const isLate = elapsed >= total - 60 && elapsed < total;
-  const inPoiZone = elapsed >= POI_ZONE_START && elapsed < POI_ZONE_END;
+  // Color zones: green 1:00-6:00, orange 6:00-7:00, red 7:00+
+  const isOvertime = elapsed >= total;           // >= 7:00
+  const isOrange   = elapsed >= POI_ZONE_END && elapsed < total; // 6:00–7:00
+  const isGreen    = elapsed >= POI_ZONE_START && elapsed < POI_ZONE_END; // 1:00–6:00
+  const inPoiZone  = isGreen;
 
   // Card
   const card = document.getElementById('timerCard');
@@ -628,8 +665,9 @@ function updateUI() {
     card.classList.add('poi-live');
   } else {
     card.classList.add(sp.side === 'opp' || sp.side === 'co' ? 'opp-side' : 'gov-side');
-    if (isOvertime) card.classList.add('danger');
-    else if (isLate) card.classList.add('warning');
+    if (isOvertime)    card.classList.add('danger');
+    else if (isOrange) card.classList.add('warning');
+    else if (isGreen)  card.classList.add('green');
   }
 
   // Speaker info
@@ -645,9 +683,10 @@ function updateUI() {
   const clockEl = document.getElementById('clock');
   clockEl.textContent = formatTime(elapsed);
   clockEl.className = 'clock';
-  if (poiActive) clockEl.classList.add('poi');
+  if (poiActive)       clockEl.classList.add('poi');
   else if (isOvertime) clockEl.classList.add('danger');
-  else if (isLate) clockEl.classList.add('warning');
+  else if (isOrange)   clockEl.classList.add('warning');
+  else if (isGreen)    clockEl.classList.add('green');
 
   // POI clock wrap (text updated by tickPOI directly; just show/hide)
   if (!poiActive) {
@@ -658,9 +697,10 @@ function updateUI() {
   const fill = document.getElementById('progressFill');
   fill.style.width = Math.min(elapsed / total, 1) * 100 + '%';
   fill.className = 'progress-fill';
-  if (poiActive) fill.classList.add('poi');
+  if (poiActive)       fill.classList.add('poi');
   else if (isOvertime) fill.classList.add('danger');
-  else if (isLate) fill.classList.add('warning');
+  else if (isOrange)   fill.classList.add('warning');
+  else if (isGreen)    fill.classList.add('green');
 
   // POI band
   const poiBand = document.getElementById('poiBand');
