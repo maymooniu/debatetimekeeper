@@ -21,6 +21,7 @@
     --gov: #4a8ce8;
     --opp: #e84a8c;
     --poi: #4a9de8;
+    --prep: #a0a0b0;
   }
 
   body {
@@ -103,6 +104,7 @@
     transition: background 0.4s;
   }
 
+  .timer-card.prep-side { border-color: rgba(160,160,176,0.3); }
   .timer-card.gov-side  { border-color: rgba(74,140,232,0.3); }
   .timer-card.opp-side  { border-color: rgba(232,74,140,0.3); }
   .timer-card.green     { border-color: rgba(62,232,122,0.35); }
@@ -143,6 +145,7 @@
     line-height: 1;
   }
 
+  .speaker-name.prep { color: var(--prep); }
   .speaker-name.gov { color: var(--gov); }
   .speaker-name.opp { color: var(--opp); }
 
@@ -153,6 +156,12 @@
     padding: 0.5rem 1rem;
     border-radius: 4px;
     font-weight: 500;
+  }
+
+  .team-tag.prep {
+    background: rgba(160,160,176,0.15);
+    color: var(--prep);
+    border: 1px solid rgba(160,160,176,0.3);
   }
 
   .team-tag.gov {
@@ -424,6 +433,7 @@
     background: var(--border);
   }
 
+  .speech-dot.prep { background: var(--prep); }
   .speech-dot.gov { background: var(--gov); }
   .speech-dot.opp { background: var(--opp); }
   .speech-dot.cg  { background: #7ab0f0; }
@@ -509,10 +519,10 @@
   <div class="timer-card" id="timerCard">
     <div class="speaker-meta">
       <div>
-        <div class="speech-number" id="speechNumber">Speech 1 of 8</div>
-        <div class="speaker-name gov" id="speakerName">Prime Minister</div>
+        <div class="speech-number" id="speechNumber">Phase 1 of 9</div>
+        <div class="speaker-name prep" id="speakerName">Case Building</div>
       </div>
-      <span class="team-tag gov" id="teamTag">Opening Gov</span>
+      <span class="team-tag prep" id="teamTag">All Teams</span>
     </div>
 
     <div class="clock-display">
@@ -524,7 +534,7 @@
       <div class="poi-clock" id="poiClock">0:15</div>
     </div>
 
-    <div class="poi-band inactive" id="poiBand">POI Zone: 1:00 – 6:00</div>
+    <div class="poi-band inactive" id="poiBand">Prep Time — No POIs</div>
 
     <div class="progress-track">
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
@@ -549,6 +559,7 @@
 
 <script>
 const SPEECHES = [
+  { name: "Case Building",         team: "All Teams", side: "prep", duration: 900, isPrep: true },
   { name: "Prime Minister",        team: "Opening Gov", side: "gov", duration: 420 },
   { name: "Leader of Opposition",  team: "Opening Opp", side: "opp", duration: 420 },
   { name: "Deputy Prime Minister", team: "Opening Gov", side: "gov", duration: 420 },
@@ -702,6 +713,8 @@ function showNotif(msg, isPoi = false) {
 
 /* ── POI ── */
 function canStartPOI() {
+  const sp = SPEECHES[currentIdx];
+  if (sp.isPrep) return false;
   return running && !poiActive && elapsed >= POI_ZONE_START && elapsed < POI_ZONE_END;
 }
 
@@ -763,20 +776,24 @@ function tickMain() {
   const total = sp.duration;
   const overtimeStart = total + 15;
 
-  if (!bells.one && elapsed === POI_ZONE_START) {
-    bells.one = true; bell(1);
-    showNotif('1 minute — POI zone open');
+  if (!sp.isPrep) {
+    if (!bells.one && elapsed === POI_ZONE_START) {
+      bells.one = true; bell(1);
+      showNotif('1 minute — POI zone open');
+    }
+    if (!bells.six && elapsed === POI_ZONE_END) {
+      bells.six = true; bell(1);
+      showNotif('6 minutes — POI zone closed');
+      if (poiActive) endPOI();
+    }
   }
-  if (!bells.six && elapsed === POI_ZONE_END) {
-    bells.six = true; bell(1);
-    showNotif('6 minutes — POI zone closed');
-    if (poiActive) endPOI();
-  }
+
   if (!bells.time && elapsed === total) {
     bells.time = true; bell(2);
     showNotif('Time!');
   }
-  if (elapsed >= overtimeStart) {
+
+  if (elapsed >= overtimeStart && !sp.isPrep) {
     const ot = elapsed - overtimeStart;
     if (ot % 15 === 0) {
       const i = ot / 15;
@@ -838,11 +855,20 @@ function updateUI() {
   const sp = SPEECHES[currentIdx];
   if (!sp) return;
   const total = sp.duration;
-  // Color zones: green 1:00-6:00, orange 6:00-7:00, red 7:00+
-  const isOvertime = elapsed >= total;           // >= 7:00
-  const isOrange   = elapsed >= POI_ZONE_END && elapsed < total; // 6:00–7:00
-  const isGreen    = elapsed >= POI_ZONE_START && elapsed < POI_ZONE_END; // 1:00–6:00
-  const inPoiZone  = isGreen;
+  
+  const isOvertime = elapsed >= total;
+  let isOrange = false;
+  let isGreen = false;
+  let inPoiZone = false;
+
+  if (!sp.isPrep) {
+    isOrange = elapsed >= POI_ZONE_END && elapsed < total;
+    isGreen = elapsed >= POI_ZONE_START && elapsed < POI_ZONE_END;
+    inPoiZone = isGreen;
+  } else {
+    // For case building, turn orange at 14 minutes
+    isOrange = elapsed >= (total - 60) && elapsed < total;
+  }
 
   // Card
   const card = document.getElementById('timerCard');
@@ -851,17 +877,17 @@ function updateUI() {
   if (poiActive) {
     card.classList.add('poi-live');
   } else {
-    card.classList.add(sp.side === 'opp' || sp.side === 'co' ? 'opp-side' : 'gov-side');
+    card.classList.add(sp.side === 'prep' ? 'prep-side' : (sp.side === 'opp' || sp.side === 'co' ? 'opp-side' : 'gov-side'));
     if (isOvertime)    card.classList.add('danger');
     else if (isOrange) card.classList.add('warning');
     else if (isGreen)  card.classList.add('green');
   }
 
   // Speaker info
-  document.getElementById('speechNumber').textContent = `Speech ${currentIdx + 1} of ${SPEECHES.length}`;
+  document.getElementById('speechNumber').textContent = sp.isPrep ? `Phase ${currentIdx + 1} of ${SPEECHES.length}` : `Speech ${currentIdx} of ${SPEECHES.length - 1}`;
   const nameEl = document.getElementById('speakerName');
   nameEl.textContent = sp.name;
-  nameEl.className = 'speaker-name ' + (sp.side === 'opp' || sp.side === 'co' ? 'opp' : 'gov');
+  nameEl.className = 'speaker-name ' + (sp.side === 'prep' ? 'prep' : (sp.side === 'opp' || sp.side === 'co' ? 'opp' : 'gov'));
   const tagEl = document.getElementById('teamTag');
   tagEl.textContent = sp.team;
   tagEl.className = 'team-tag ' + sp.side;
@@ -875,7 +901,7 @@ function updateUI() {
   else if (isOrange)   clockEl.classList.add('warning');
   else if (isGreen)    clockEl.classList.add('green');
 
-  // POI clock wrap (text updated by tickPOI directly; just show/hide)
+  // POI clock wrap
   if (!poiActive) {
     document.getElementById('poiClock').textContent = formatTime(POI_DURATION);
   }
@@ -891,12 +917,17 @@ function updateUI() {
 
   // POI band
   const poiBand = document.getElementById('poiBand');
-  if (poiActive) {
-    poiBand.className = 'poi-band poi-running';
-    poiBand.textContent = '⬡ POI In Progress';
+  if (sp.isPrep) {
+    poiBand.className = 'poi-band inactive';
+    poiBand.textContent = 'Prep Time — No POIs';
   } else {
-    poiBand.className = 'poi-band ' + (inPoiZone ? 'active' : 'inactive');
-    poiBand.textContent = inPoiZone ? '⬡ POI Zone Open' : 'POI Zone: 1:00 – 6:00';
+    if (poiActive) {
+      poiBand.className = 'poi-band poi-running';
+      poiBand.textContent = '⬡ POI In Progress';
+    } else {
+      poiBand.className = 'poi-band ' + (inPoiZone ? 'active' : 'inactive');
+      poiBand.textContent = inPoiZone ? '⬡ POI Zone Open' : 'POI Zone: 1:00 – 6:00';
+    }
   }
 
   // POI button
@@ -927,7 +958,7 @@ function renderList() {
       <span class="speech-dot ${sp.side}"></span>
       <span class="speech-item-name">${sp.name}</span>
       <span class="speech-item-team">${sp.team}</span>
-      <span class="speech-item-dur">7:00</span>
+      <span class="speech-item-dur">${formatTime(sp.duration)}</span>
       <span class="speech-item-taken">${taken}</span>
     `;
     li.onclick = () => jumpTo(i);
@@ -950,10 +981,10 @@ function rebuildCard() {
   document.getElementById('timerCard').innerHTML = `
     <div class="speaker-meta">
       <div>
-        <div class="speech-number" id="speechNumber">Speech 1 of 8</div>
-        <div class="speaker-name gov" id="speakerName">Prime Minister</div>
+        <div class="speech-number" id="speechNumber">Phase 1 of 9</div>
+        <div class="speaker-name prep" id="speakerName">Case Building</div>
       </div>
-      <span class="team-tag gov" id="teamTag">Opening Gov</span>
+      <span class="team-tag prep" id="teamTag">All Teams</span>
     </div>
     <div class="clock-display">
       <div class="clock" id="clock">0:00</div>
@@ -962,7 +993,7 @@ function rebuildCard() {
       <div class="poi-clock-label">POI — Time Remaining</div>
       <div class="poi-clock" id="poiClock">0:15</div>
     </div>
-    <div class="poi-band inactive" id="poiBand">POI Zone: 1:00 – 6:00</div>
+    <div class="poi-band inactive" id="poiBand">Prep Time — No POIs</div>
     <div class="progress-track">
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
     </div>
