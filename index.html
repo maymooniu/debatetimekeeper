@@ -20,6 +20,7 @@
       --muted: #666680;
       --gov: #4a8ce8;
       --opp: #e84a8c;
+      --poi: #4a9de8;
     }
 
     body {
@@ -32,9 +33,10 @@
       align-items: center;
       padding: 2rem 1rem 4rem;
       overflow-x: hidden;
+      transition: background 0.4s;
     }
+    body.poi-active { background: #040d1a; }
 
-    /* Subtle grid background */
     body::before {
       content: '';
       position: fixed;
@@ -50,11 +52,7 @@
 
     .container { position: relative; z-index: 1; width: 100%; max-width: 800px; }
 
-    /* HEADER */
-    header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
+    header { text-align: center; margin-bottom: 3rem; }
     header h1 {
       font-family: 'Bebas Neue', sans-serif;
       font-size: clamp(3rem, 10vw, 6rem);
@@ -73,7 +71,7 @@
       margin-top: 0.5rem;
     }
 
-    /* MAIN TIMER DISPLAY */
+    /* TIMER CARD */
     .timer-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -82,7 +80,7 @@
       margin-bottom: 1.5rem;
       position: relative;
       overflow: hidden;
-      transition: border-color 0.3s;
+      transition: border-color 0.3s, background 0.4s, box-shadow 0.4s;
     }
     .timer-card::before {
       content: '';
@@ -91,13 +89,23 @@
       height: 3px;
       background: linear-gradient(90deg, var(--gov), var(--accent), var(--opp));
       opacity: 0.6;
+      transition: background 0.4s;
     }
-    .timer-card.gov-side { border-color: rgba(74,140,232,0.3); }
-    .timer-card.opp-side { border-color: rgba(232,74,140,0.3); }
-    .timer-card.warning { border-color: rgba(232,122,74,0.5); }
-    .timer-card.danger  { border-color: rgba(232,74,74,0.5); }
+    .timer-card.gov-side  { border-color: rgba(74,140,232,0.3); }
+    .timer-card.opp-side  { border-color: rgba(232,74,140,0.3); }
+    .timer-card.warning   { border-color: rgba(232,122,74,0.5); }
+    .timer-card.danger    { border-color: rgba(232,74,74,0.5); }
+    .timer-card.poi-live  {
+      border-color: rgba(74,157,232,0.7) !important;
+      background: #0a1828;
+      box-shadow: 0 0 50px rgba(74,157,232,0.12);
+    }
+    .timer-card.poi-live::before {
+      background: linear-gradient(90deg, #0d3a6e, #4a9de8, #0d3a6e);
+      opacity: 1;
+    }
 
-    /* Speaker info */
+    /* Speaker meta */
     .speaker-meta {
       display: flex;
       justify-content: space-between;
@@ -133,11 +141,8 @@
     .team-tag.cg  { background: rgba(74,140,232,0.08); color: #7ab0f0; border: 1px solid rgba(74,140,232,0.2); }
     .team-tag.co  { background: rgba(232,74,140,0.08); color: #f07ab0; border: 1px solid rgba(232,74,140,0.2); }
 
-    /* Big clock */
-    .clock-display {
-      text-align: center;
-      margin: 1rem 0;
-    }
+    /* Main clock */
+    .clock-display { text-align: center; margin: 0.5rem 0; }
     .clock {
       font-family: 'Bebas Neue', sans-serif;
       font-size: clamp(5rem, 20vw, 9rem);
@@ -148,9 +153,36 @@
     }
     .clock.warning { color: var(--warn); }
     .clock.danger  { color: var(--danger); animation: pulse 0.8s ease-in-out infinite; }
+    .clock.poi     { color: var(--poi) !important; animation: none; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
-    /* POI indicator */
+    /* POI countdown display */
+    .poi-clock-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      margin: 0.25rem 0 0.75rem;
+    }
+    .poi-clock-wrap.visible { display: flex; }
+    .poi-clock-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--poi);
+      opacity: 0.8;
+      margin-bottom: 0.15rem;
+    }
+    .poi-clock {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2.5rem, 8vw, 4rem);
+      color: var(--poi);
+      letter-spacing: 0.05em;
+      line-height: 1;
+      animation: poiPulse 1s ease-in-out infinite;
+    }
+    @keyframes poiPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
+
+    /* POI zone band */
     .poi-band {
       text-align: center;
       font-size: 0.7rem;
@@ -171,6 +203,11 @@
       color: var(--muted);
       border: 1px solid transparent;
     }
+    .poi-band.poi-running {
+      background: rgba(74,157,232,0.12) !important;
+      color: var(--poi) !important;
+      border: 1px solid rgba(74,157,232,0.4) !important;
+    }
 
     /* Progress bar */
     .progress-track {
@@ -188,8 +225,9 @@
     }
     .progress-fill.warning { background: var(--warn); }
     .progress-fill.danger  { background: var(--danger); }
+    .progress-fill.poi     { background: var(--poi); }
 
-    /* Controls */
+    /* Buttons */
     .controls {
       display: flex;
       gap: 0.75rem;
@@ -207,31 +245,31 @@
       padding: 0.7rem 1.5rem;
       transition: all 0.15s;
     }
-    .btn-primary {
-      background: var(--accent);
-      color: #0a0a0f;
-      font-weight: 500;
-    }
+    .btn-primary { background: var(--accent); color: #0a0a0f; font-weight: 500; }
     .btn-primary:hover { background: #f0d060; transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(0); }
-    .btn-secondary {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
+    .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
     .btn-secondary:hover { border-color: var(--muted); background: rgba(255,255,255,0.03); }
-    .btn-danger {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-    .btn-danger:hover { color: var(--danger); border-color: var(--danger); }
-    .btn-next {
-      background: var(--accent2);
-      color: #0a0a0f;
+    .btn-danger-soft { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-danger-soft:hover { color: var(--danger); border-color: var(--danger); }
+    .btn-next { background: var(--accent2); color: #0a0a0f; font-weight: 500; }
+    .btn-next:hover { background: #6af0d8; transform: translateY(-1px); }
+    .btn-poi {
+      background: rgba(74,157,232,0.12);
+      color: var(--poi);
+      border: 1px solid rgba(74,157,232,0.35);
       font-weight: 500;
     }
-    .btn-next:hover { background: #6af0d8; transform: translateY(-1px); }
+    .btn-poi:hover:not(:disabled) { background: rgba(74,157,232,0.22); border-color: var(--poi); transform: translateY(-1px); }
+    .btn-poi:disabled { opacity: 0.25; cursor: not-allowed; }
+    .btn-poi.running {
+      background: rgba(74,157,232,0.28);
+      border-color: var(--poi);
+      animation: poiBtnGlow 1s ease-in-out infinite;
+    }
+    @keyframes poiBtnGlow {
+      0%,100% { box-shadow: 0 0 0 0 rgba(74,157,232,0.5); }
+      50%      { box-shadow: 0 0 0 5px rgba(74,157,232,0); }
+    }
 
     /* Speech list */
     .speech-list-card {
@@ -248,16 +286,11 @@
       color: var(--muted);
       margin-bottom: 1rem;
     }
-    .speech-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
+    .speech-list { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
     .speech-item {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
       padding: 0.5rem 0.75rem;
       border-radius: 2px;
       border: 1px solid transparent;
@@ -266,30 +299,27 @@
       font-size: 0.75rem;
     }
     .speech-item:hover { background: rgba(255,255,255,0.03); border-color: var(--border); }
-    .speech-item.current {
-      background: rgba(232,200,74,0.07);
-      border-color: rgba(232,200,74,0.25);
-    }
-    .speech-item.done { opacity: 0.4; }
-    .speech-item.done .speech-dot { background: var(--muted); }
-    .speech-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      background: var(--border);
-    }
+    .speech-item.current { background: rgba(232,200,74,0.07); border-color: rgba(232,200,74,0.25); }
+    .speech-item.done { opacity: 0.55; }
+    .speech-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--border); }
     .speech-dot.gov { background: var(--gov); }
     .speech-dot.opp { background: var(--opp); }
     .speech-dot.cg  { background: #7ab0f0; }
     .speech-dot.co  { background: #f07ab0; }
-    .speech-dot.reply-gov { background: var(--gov); box-shadow: 0 0 0 2px rgba(74,140,232,0.3); }
-    .speech-dot.reply-opp { background: var(--opp); box-shadow: 0 0 0 2px rgba(232,74,140,0.3); }
     .speech-item-name { flex: 1; color: var(--text); }
-    .speech-item-team { color: var(--muted); font-size: 0.65rem; }
-    .speech-item-dur  { color: var(--muted); font-size: 0.65rem; }
     .speech-item.current .speech-item-name { color: var(--accent); }
+    .speech-item-team { color: var(--muted); font-size: 0.65rem; min-width: 80px; }
+    .speech-item-dur  { color: var(--muted); font-size: 0.65rem; min-width: 36px; text-align: right; }
+    .speech-item-taken {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--accent2);
+      min-width: 44px;
+      text-align: right;
+      letter-spacing: 0.04em;
+    }
 
-    /* Notification bar */
+    /* Notification */
     .notification {
       position: fixed;
       bottom: 1.5rem;
@@ -308,12 +338,10 @@
       white-space: nowrap;
     }
     .notification.show { transform: translateX(-50%) translateY(0); }
+    .notification.poi-notif { border-color: var(--poi); color: var(--poi); }
 
-    /* Done screen */
-    .done-banner {
-      text-align: center;
-      padding: 2rem;
-    }
+    /* Done */
+    .done-banner { text-align: center; padding: 2rem; }
     .done-banner h2 {
       font-family: 'Bebas Neue', sans-serif;
       font-size: 3rem;
@@ -327,7 +355,8 @@
 
     @media (max-width: 480px) {
       .controls { gap: 0.5rem; }
-      button { padding: 0.6rem 1rem; font-size: 0.7rem; }
+      button { padding: 0.6rem 0.9rem; font-size: 0.7rem; }
+      .speech-item-team { display: none; }
     }
   </style>
 </head>
@@ -342,13 +371,18 @@
     <div class="speaker-meta">
       <div>
         <div class="speech-number" id="speechNumber">Speech 1 of 8</div>
-        <div class="speaker-name" id="speakerName">Prime Minister</div>
+        <div class="speaker-name gov" id="speakerName">Prime Minister</div>
       </div>
-      <span class="team-tag" id="teamTag">Opening Gov</span>
+      <span class="team-tag gov" id="teamTag">Opening Gov</span>
     </div>
 
     <div class="clock-display">
       <div class="clock" id="clock">0:00</div>
+    </div>
+
+    <div class="poi-clock-wrap" id="poiClockWrap">
+      <div class="poi-clock-label">POI — Time Remaining</div>
+      <div class="poi-clock" id="poiClock">0:15</div>
     </div>
 
     <div class="poi-band inactive" id="poiBand">POI Zone: 1:00 – 6:00</div>
@@ -360,8 +394,9 @@
     <div class="controls">
       <button class="btn-primary" id="btnStartStop" onclick="toggleTimer()">Start</button>
       <button class="btn-secondary" onclick="resetCurrent()">Reset</button>
+      <button class="btn-poi" id="btnPoi" onclick="startPOI()" disabled>POI</button>
       <button class="btn-next" onclick="nextSpeech()">Next →</button>
-      <button class="btn-danger" onclick="resetAll()">Reset All</button>
+      <button class="btn-danger-soft" onclick="resetAll()">Reset All</button>
     </div>
   </div>
 
@@ -375,29 +410,33 @@
 
 <script>
 const SPEECHES = [
-  { name: "Prime Minister",          team: "Opening Gov",  side: "gov",        duration: 420 },
-  { name: "Leader of Opposition",    team: "Opening Opp",  side: "opp",        duration: 420 },
-  { name: "Deputy Prime Minister",   team: "Opening Gov",  side: "gov",        duration: 420 },
-  { name: "Deputy Leader of Opp.",   team: "Opening Opp",  side: "opp",        duration: 420 },
-  { name: "Member for Government",   team: "Closing Gov",  side: "cg",         duration: 420 },
-  { name: "Member for Opposition",   team: "Closing Opp",  side: "co",         duration: 420 },
-  { name: "Government Whip",         team: "Closing Gov",  side: "cg",         duration: 420 },
-  { name: "Opposition Whip",         team: "Closing Opp",  side: "co",         duration: 420 },
-  { name: "Reply — Opposition",      team: "Closing Opp",  side: "reply-opp",  duration: 120 },
-  { name: "Reply — Government",      team: "Closing Gov",  side: "reply-gov",  duration: 120 },
+  { name: "Prime Minister",        team: "Opening Gov", side: "gov", duration: 420 },
+  { name: "Leader of Opposition",  team: "Opening Opp", side: "opp", duration: 420 },
+  { name: "Deputy Prime Minister", team: "Opening Gov", side: "gov", duration: 420 },
+  { name: "Deputy Leader of Opp.", team: "Opening Opp", side: "opp", duration: 420 },
+  { name: "Member for Government", team: "Closing Gov", side: "cg",  duration: 420 },
+  { name: "Member for Opposition", team: "Closing Opp", side: "co",  duration: 420 },
+  { name: "Government Whip",       team: "Closing Gov", side: "cg",  duration: 420 },
+  { name: "Opposition Whip",       team: "Closing Opp", side: "co",  duration: 420 },
 ];
 
-const POI_START = 60, POI_END = 360; // seconds elapsed
+const POI_ZONE_START = 60;
+const POI_ZONE_END   = 360;
+const POI_DURATION   = 15;
 
 let currentIdx = 0;
-let elapsed = 0;       // counts UP
+let elapsed = 0;
 let running = false;
-let interval = null;
+let mainInterval = null;
 let notifTimeout = null;
-// bells: track fixed bell moments already fired
 let bells = { one: false, six: false, time: false };
-// overtime: track which 15s intervals have fired (index = (elapsed - overtime_start) / 15)
 let overtimeBellsFired = new Set();
+let timeTaken = {};   // { speechIndex: secondsElapsed }
+
+// POI state
+let poiActive = false;
+let poiRemaining = POI_DURATION;
+let poiInterval = null;
 
 // Audio
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -408,187 +447,124 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-function beep(freq, dur, vol = 0.3) {
+function beep(freq, dur, vol = 0.35) {
   try {
     const ctx = getAudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = freq;
-    osc.type = 'sine';
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = freq; osc.type = 'sine';
     gain.gain.setValueAtTime(vol, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + dur);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
   } catch(e) {}
 }
 
-function bell(count = 1) {
-  for (let i = 0; i < count; i++) {
-    setTimeout(() => beep(880, 0.6, 0.4), i * 700);
-  }
+function bell(count = 1, freq = 880) {
+  for (let i = 0; i < count; i++) setTimeout(() => beep(freq, 0.55, 0.4), i * 700);
 }
 
 function formatTime(s) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
+  const m = Math.floor(Math.abs(s) / 60);
+  const sec = Math.abs(s) % 60;
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-function showNotif(msg) {
+function showNotif(msg, isPoi = false) {
   const el = document.getElementById('notification');
   el.textContent = msg;
-  el.classList.add('show');
+  el.className = 'notification show' + (isPoi ? ' poi-notif' : '');
   clearTimeout(notifTimeout);
   notifTimeout = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-function updateUI() {
-  const sp = SPEECHES[currentIdx];
-  const total = sp.duration;
-  const isReply = total === 120;
-  // overtime starts at total + 15 seconds (7:15 for 7-min, 2:15 for reply)
-  const overtimeStart = total + 15;
-  const isOvertime = elapsed >= total;
-  const isLate = elapsed >= total - 60 && elapsed < total; // last minute
-
-  // Card side class
-  const card = document.getElementById('timerCard');
-  card.className = 'timer-card';
-  if (sp.side.includes('gov') || sp.side === 'cg') card.classList.add('gov-side');
-  else card.classList.add('opp-side');
-  if (isOvertime) card.classList.add('danger');
-  else if (isLate) card.classList.add('warning');
-
-  // Speech info
-  document.getElementById('speechNumber').textContent =
-    `Speech ${currentIdx + 1} of ${SPEECHES.length}`;
-  const nameEl = document.getElementById('speakerName');
-  nameEl.textContent = sp.name;
-  nameEl.className = 'speaker-name ' + (sp.side.includes('opp') || sp.side === 'co' ? 'opp' : 'gov');
-
-  const tagEl = document.getElementById('teamTag');
-  tagEl.textContent = sp.team;
-  tagEl.className = 'team-tag ' + sp.side.replace('reply-','');
-
-  // Clock — show elapsed, highlight overtime in red
-  const clockEl = document.getElementById('clock');
-  clockEl.textContent = formatTime(elapsed);
-  clockEl.className = 'clock';
-  if (isOvertime) clockEl.classList.add('danger');
-  else if (isLate) clockEl.classList.add('warning');
-
-  // Progress bar — fills up to total duration, stays full in overtime
-  const fill = document.getElementById('progressFill');
-  const frac = Math.min(elapsed / total, 1);
-  fill.style.width = (frac * 100) + '%';
-  fill.className = 'progress-fill';
-  if (isOvertime) fill.classList.add('danger');
-  else if (isLate) fill.classList.add('warning');
-
-  // POI band
-  const poiBand = document.getElementById('poiBand');
-  if (!isReply) {
-    const inPoi = elapsed >= POI_START && elapsed < POI_END;
-    poiBand.className = 'poi-band ' + (inPoi ? 'active' : 'inactive');
-    poiBand.textContent = inPoi ? '⬡ POI Zone Open' : 'POI Zone: 1:00 – 6:00';
-  } else {
-    poiBand.className = 'poi-band inactive';
-    poiBand.textContent = 'Reply Speech — No POIs';
-  }
-
-  // Speech list
-  renderList();
-
-  // Start/stop button
-  document.getElementById('btnStartStop').textContent = running ? 'Pause' : 'Start';
+/* ── POI ── */
+function canStartPOI() {
+  return running && !poiActive && elapsed >= POI_ZONE_START && elapsed < POI_ZONE_END;
 }
 
-function renderList() {
-  const ul = document.getElementById('speechList');
-  ul.innerHTML = '';
-  SPEECHES.forEach((sp, i) => {
-    const li = document.createElement('li');
-    li.className = 'speech-item';
-    if (i === currentIdx) li.classList.add('current');
-    else if (i < currentIdx) li.classList.add('done');
-
-    li.innerHTML = `
-      <span class="speech-dot ${sp.side}"></span>
-      <span class="speech-item-name">${sp.name}</span>
-      <span class="speech-item-team">${sp.team}</span>
-      <span class="speech-item-dur">${sp.duration === 120 ? '2 min' : '7 min'}</span>
-    `;
-    li.onclick = () => jumpTo(i);
-    ul.appendChild(li);
-  });
-}
-
-function jumpTo(idx) {
-  stopTimer();
-  currentIdx = idx;
-  elapsed = 0;
-  bells = { one: false, six: false, time: false };
-  overtimeBellsFired = new Set();
+function startPOI() {
+  if (!canStartPOI()) return;
+  poiActive = true;
+  poiRemaining = POI_DURATION;
+  bell(1, 660);
+  showNotif('POI — 15 seconds', true);
+  document.getElementById('btnPoi').classList.add('running');
+  document.getElementById('poiClockWrap').classList.add('visible');
+  document.getElementById('poiClock').textContent = formatTime(poiRemaining);
+  document.body.classList.add('poi-active');
+  poiInterval = setInterval(tickPOI, 1000);
   updateUI();
 }
 
+function tickPOI() {
+  poiRemaining--;
+  document.getElementById('poiClock').textContent = formatTime(poiRemaining);
+  if (poiRemaining <= 0) {
+    endPOI();
+    bell(1, 660);
+    showNotif('POI ended', true);
+  }
+}
+
+function endPOI() {
+  poiActive = false;
+  clearInterval(poiInterval);
+  poiInterval = null;
+  document.getElementById('btnPoi').classList.remove('running');
+  document.getElementById('poiClockWrap').classList.remove('visible');
+  document.body.classList.remove('poi-active');
+  updateUI();
+}
+
+/* ── MAIN TIMER ── */
 function toggleTimer() {
-  if (running) stopTimer();
-  else startTimer();
+  if (running) stopTimer(); else startTimer();
 }
 
 function startTimer() {
   running = true;
-  interval = setInterval(tick, 1000);
+  mainInterval = setInterval(tickMain, 1000);
   updateUI();
 }
 
 function stopTimer() {
   running = false;
-  clearInterval(interval);
+  clearInterval(mainInterval);
+  if (poiActive) endPOI();
   updateUI();
 }
 
-function tick() {
+function tickMain() {
   elapsed++;
   const sp = SPEECHES[currentIdx];
   const total = sp.duration;
-  const isReply = total === 120;
-  const overtimeStart = total + 15; // 7:15 for main, 2:15 for reply
+  const overtimeStart = total + 15;
 
-  // Bell at 1:00
-  if (!bells.one && elapsed === 60) {
-    bells.one = true;
-    bell(1);
+  if (!bells.one && elapsed === POI_ZONE_START) {
+    bells.one = true; bell(1);
     showNotif('1 minute — POI zone open');
   }
-  // Bell at 6:00 (only for 7-min speeches)
-  if (!bells.six && !isReply && elapsed === 360) {
-    bells.six = true;
-    bell(1);
+  if (!bells.six && elapsed === POI_ZONE_END) {
+    bells.six = true; bell(1);
     showNotif('6 minutes — POI zone closed');
+    if (poiActive) endPOI();
   }
-  // Double bell at speech time (7:00 or 2:00)
   if (!bells.time && elapsed === total) {
-    bells.time = true;
-    bell(2);
+    bells.time = true; bell(2);
     showNotif('Time!');
   }
-  // From 7:15 onward: bell every 15 seconds
   if (elapsed >= overtimeStart) {
-    const overtimeElapsed = elapsed - overtimeStart;
-    if (overtimeElapsed % 15 === 0) {
-      const idx = overtimeElapsed / 15;
-      if (!overtimeBellsFired.has(idx)) {
-        overtimeBellsFired.add(idx);
+    const ot = elapsed - overtimeStart;
+    if (ot % 15 === 0) {
+      const i = ot / 15;
+      if (!overtimeBellsFired.has(i)) {
+        overtimeBellsFired.add(i);
         bell(3);
         showNotif('Overtime +' + formatTime(elapsed - total));
       }
     }
   }
-
   updateUI();
 }
 
@@ -601,6 +577,7 @@ function resetCurrent() {
 }
 
 function nextSpeech() {
+  timeTaken[currentIdx] = elapsed;   // record time taken
   stopTimer();
   if (currentIdx < SPEECHES.length - 1) {
     currentIdx++;
@@ -608,11 +585,127 @@ function nextSpeech() {
     bells = { one: false, six: false, time: false };
     overtimeBellsFired = new Set();
     updateUI();
-    showNotif(`${SPEECHES[currentIdx].name}`);
+    showNotif(SPEECHES[currentIdx].name);
   } else {
     showNotif('Round complete!');
     renderDone();
   }
+}
+
+function jumpTo(idx) {
+  stopTimer();
+  currentIdx = idx;
+  elapsed = 0;
+  bells = { one: false, six: false, time: false };
+  overtimeBellsFired = new Set();
+  updateUI();
+}
+
+function resetAll() {
+  stopTimer();
+  currentIdx = 0; elapsed = 0;
+  bells = { one: false, six: false, time: false };
+  overtimeBellsFired = new Set();
+  timeTaken = {};
+  rebuildCard();
+  updateUI();
+}
+
+/* ── UI ── */
+function updateUI() {
+  const sp = SPEECHES[currentIdx];
+  if (!sp) return;
+  const total = sp.duration;
+  const isOvertime = elapsed >= total;
+  const isLate = elapsed >= total - 60 && elapsed < total;
+  const inPoiZone = elapsed >= POI_ZONE_START && elapsed < POI_ZONE_END;
+
+  // Card
+  const card = document.getElementById('timerCard');
+  if (!card) return;
+  card.className = 'timer-card';
+  if (poiActive) {
+    card.classList.add('poi-live');
+  } else {
+    card.classList.add(sp.side === 'opp' || sp.side === 'co' ? 'opp-side' : 'gov-side');
+    if (isOvertime) card.classList.add('danger');
+    else if (isLate) card.classList.add('warning');
+  }
+
+  // Speaker info
+  document.getElementById('speechNumber').textContent = `Speech ${currentIdx + 1} of ${SPEECHES.length}`;
+  const nameEl = document.getElementById('speakerName');
+  nameEl.textContent = sp.name;
+  nameEl.className = 'speaker-name ' + (sp.side === 'opp' || sp.side === 'co' ? 'opp' : 'gov');
+  const tagEl = document.getElementById('teamTag');
+  tagEl.textContent = sp.team;
+  tagEl.className = 'team-tag ' + sp.side;
+
+  // Main clock
+  const clockEl = document.getElementById('clock');
+  clockEl.textContent = formatTime(elapsed);
+  clockEl.className = 'clock';
+  if (poiActive) clockEl.classList.add('poi');
+  else if (isOvertime) clockEl.classList.add('danger');
+  else if (isLate) clockEl.classList.add('warning');
+
+  // POI clock wrap (text updated by tickPOI directly; just show/hide)
+  if (!poiActive) {
+    document.getElementById('poiClock').textContent = formatTime(POI_DURATION);
+  }
+
+  // Progress bar
+  const fill = document.getElementById('progressFill');
+  fill.style.width = Math.min(elapsed / total, 1) * 100 + '%';
+  fill.className = 'progress-fill';
+  if (poiActive) fill.classList.add('poi');
+  else if (isOvertime) fill.classList.add('danger');
+  else if (isLate) fill.classList.add('warning');
+
+  // POI band
+  const poiBand = document.getElementById('poiBand');
+  if (poiActive) {
+    poiBand.className = 'poi-band poi-running';
+    poiBand.textContent = '⬡ POI In Progress';
+  } else {
+    poiBand.className = 'poi-band ' + (inPoiZone ? 'active' : 'inactive');
+    poiBand.textContent = inPoiZone ? '⬡ POI Zone Open' : 'POI Zone: 1:00 – 6:00';
+  }
+
+  // POI button
+  const btnPoi = document.getElementById('btnPoi');
+  btnPoi.disabled = !canStartPOI();
+  if (poiActive) btnPoi.classList.add('running');
+  else btnPoi.classList.remove('running');
+
+  // Start/stop button
+  document.getElementById('btnStartStop').textContent = running ? 'Pause' : 'Start';
+
+  renderList();
+}
+
+function renderList() {
+  const ul = document.getElementById('speechList');
+  if (!ul) return;
+  ul.innerHTML = '';
+  SPEECHES.forEach((sp, i) => {
+    const li = document.createElement('li');
+    li.className = 'speech-item';
+    if (i === currentIdx) li.classList.add('current');
+    else if (i < currentIdx) li.classList.add('done');
+
+    const taken = timeTaken[i] !== undefined ? formatTime(timeTaken[i]) : '';
+
+    li.innerHTML = `
+      <span class="speech-dot ${sp.side}"></span>
+      <span class="speech-item-name">${sp.name}</span>
+      <span class="speech-item-team">${sp.team}</span>
+      <span class="speech-item-dur">7:00</span>
+      <span class="speech-item-taken">${taken}</span>
+    `;
+    li.onclick = () => jumpTo(i);
+    ul.appendChild(li);
+  });
 }
 
 function renderDone() {
@@ -621,29 +714,26 @@ function renderDone() {
     <div class="done-banner">
       <h2>Round Complete</h2>
       <p>All speeches delivered</p>
-      <br/>
-      <button class="btn-primary" onclick="resetAll()" style="margin-top:1rem">New Round</button>
+      <button class="btn-primary" onclick="resetAll()" style="margin-top:1.5rem">New Round</button>
     </div>
   `;
 }
 
-function resetAll() {
-  stopTimer();
-  currentIdx = 0;
-  elapsed = 0;
-  bells = { one: false, six: false, time: false };
-  overtimeBellsFired = new Set();
-
+function rebuildCard() {
   document.getElementById('timerCard').innerHTML = `
     <div class="speaker-meta">
       <div>
-        <div class="speech-number" id="speechNumber">Speech 1 of 10</div>
-        <div class="speaker-name" id="speakerName">Prime Minister</div>
+        <div class="speech-number" id="speechNumber">Speech 1 of 8</div>
+        <div class="speaker-name gov" id="speakerName">Prime Minister</div>
       </div>
-      <span class="team-tag" id="teamTag">Opening Gov</span>
+      <span class="team-tag gov" id="teamTag">Opening Gov</span>
     </div>
     <div class="clock-display">
       <div class="clock" id="clock">0:00</div>
+    </div>
+    <div class="poi-clock-wrap" id="poiClockWrap">
+      <div class="poi-clock-label">POI — Time Remaining</div>
+      <div class="poi-clock" id="poiClock">0:15</div>
     </div>
     <div class="poi-band inactive" id="poiBand">POI Zone: 1:00 – 6:00</div>
     <div class="progress-track">
@@ -652,14 +742,14 @@ function resetAll() {
     <div class="controls">
       <button class="btn-primary" id="btnStartStop" onclick="toggleTimer()">Start</button>
       <button class="btn-secondary" onclick="resetCurrent()">Reset</button>
+      <button class="btn-poi" id="btnPoi" onclick="startPOI()" disabled>POI</button>
       <button class="btn-next" onclick="nextSpeech()">Next →</button>
-      <button class="btn-danger" onclick="resetAll()">Reset All</button>
+      <button class="btn-danger-soft" onclick="resetAll()">Reset All</button>
     </div>
   `;
-  updateUI();
 }
 
-// Init — show 0:00 at start
+// Init
 updateUI();
 </script>
 </body>
