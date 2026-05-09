@@ -381,6 +381,34 @@
     .speech-item-team { display: none; }
     .speech-item-dur { display: none; }
   }
+
+  /* Rule legend */
+  .rule-legend {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.6;
+    letter-spacing: 0.03em;
+    text-align: center;
+  }
+
+  /* Site footer */
+  .site-footer {
+    margin-top: 3rem;
+    text-align: center;
+    font-size: 0.82rem;
+    color: #9090aa;
+    letter-spacing: 0.12em;
+  }
+  .site-footer a {
+    color: #9090aa;
+    text-decoration: none;
+  }
+  .site-footer a:hover { color: var(--text); }
+
+
 </style>
 </head>
 <body>
@@ -425,6 +453,9 @@
         <button class="btn-secondary" onclick="resetCurrent()">Reset</button>
         <button class="btn-next" onclick="nextSpeech()">Next →</button>
         <button class="btn-danger-soft" onclick="resetAll()">Reset All</button>
+
+      <!-- Rule legend -->
+      <p class="rule-legend">7-min substantive speech. Single bell at the 1st and 6th minute marks the POI zone. Double bell at 7 minutes signals time. POIs last 15 seconds and are only allowed between minutes 1 and 6.</p>
       </div>
     </div>
 
@@ -440,6 +471,11 @@
     <ul class="speech-list" id="speechList"></ul>
   </div>
 </div>
+
+
+<footer class="site-footer">
+  A project by Christian Tendean
+</footer>
 
 <div class="notification" id="notification"></div>
 
